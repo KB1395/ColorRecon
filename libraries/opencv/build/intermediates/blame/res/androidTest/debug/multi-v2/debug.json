@@ -1,0 +1,20 @@
+{
+    "logs": [
+        {
+            "outputFile": "C:\\Data\\Cours\\1MA\\Erasmus\\Embedded\\Didattica\\esp\\DidatticaIntegrativa\\OpenCVBlur\\libraries\\opencv\\build\\intermediates\\res\\merged\\androidTest\\debug\\values_values.arsc.flat",
+            "map": []
+        },
+        {
+            "outputFile": "C:\\Data\\Cours\\1MA\\Erasmus\\Embedded\\ColorReco\\libraries\\opencv\\build\\intermediates\\res\\merged\\androidTest\\debug\\values_values.arsc.flat",
+            "map": []
+        },
+        {
+            "outputFile": "C:\\Data\\Cours\\1MA\\Erasmus\\Embedded\\OpenCVBlur\\libraries\\opencv\\build\\intermediates\\res\\merged\\androidTest\\debug\\values_values.arsc.flat",
+            "map": []
+        },
+        {
+            "outputFile": "C:\\Data\\Cours\\1MA\\Erasmus\\Embedded\\ColorRecon\\libraries\\opencv\\build\\intermediates\\res\\merged\\androidTest\\debug\\values_values.arsc.flat",
+            "map": []
+        }
+    ]
+}
