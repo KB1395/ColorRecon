@@ -99,7 +99,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         mRgba = new Mat();
         edges = new Mat();
         hierarchy = new Mat();
-        maxcnt=new MatOfPoint();
         finalColor=0;
         redFrames=0;
         greenFrames=0;
@@ -115,7 +114,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
 
 
-
+        maxcntID=0;
+        maxcnt=new MatOfPoint();
         //Trasformazione della camera frame in ogetto Mat
         mRgba = inputFrame.rgba();
         Mat mHSV = new Mat();
@@ -156,10 +156,21 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                     Double maxCos = cos.get(cos.size() - 1);
                     //considereare solo le forme con quattro angoli e con certi valori di coseno tra -0.1 e 0.3
                     boolean isRect = total == 4 && minCos >= -0.1 && maxCos <= 0.3;
+                    Rect rect = Imgproc.boundingRect(maxcnt);
+                    //recuperazione del centro del rettangolo (dunque del contorno)
+                    double centx = ((rect.tl().x + rect.br().x) / 2);
+                    double centy = (rect.tl().y + rect.br().y) / 2;
+
+                    //recupero delle informazioni HSV del pixel centrale
+                    double[] pixel = mHSV.get((int) centy, (int) centx);
+
 
                     if (isRect && contourArea > biggestContour) {
-                        biggestContour = contourArea;
-                        maxcntID = idx;
+                        if ((pixel[0] < 50 && pixel[1] > 120 && pixel[2] > 20 && pixel[2] < 210)||(pixel[0] > 37 && pixel[0] < 100 && pixel[1] > 110 && pixel[2] > 120)) {
+                            biggestContour = contourArea;
+                            maxcntID = idx;
+                        }
+
                     }
 
                 }
@@ -167,9 +178,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             maxcnt = contours.get(maxcntID);
             //trovare il rettangolo piu piccolo che circonda il contorno
             Rect rect = Imgproc.boundingRect(maxcnt);
-            //Si entra in questa zona solo se il contorno è un rettangolo
-            MatOfPoint2f areaPoints = new MatOfPoint2f(maxcnt.toArray());
-
             //recuperazione del centro del rettangolo (dunque del contorno)
             double centx = ((rect.tl().x + rect.br().x) / 2);
             double centy = (rect.tl().y + rect.br().y) / 2;
