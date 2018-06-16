@@ -35,6 +35,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private int redFrames;
     private int greenFrames;
     private double biggestContour;
+    private List<MatOfPoint> contours;
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -102,7 +103,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         finalColor=0;
         redFrames=0;
         greenFrames=0;
-        biggestContour=0;
     }
 
     @Override
@@ -113,7 +113,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
 
-
+        biggestContour=0;
         maxcntID=0;
         maxcnt=new MatOfPoint();
         //Trasformazione della camera frame in ogetto Mat
@@ -128,7 +128,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         //Effetuare un Canny sulla frame in grayscale
         //(Canny è una trasformazione che permette di detettare i contorni)
         Imgproc.Canny(destination, edges, threshold, threshold*3);
-        List<MatOfPoint> contours = new ArrayList<>();
+        contours = new ArrayList<>();
         //Creazione di un array di contorni
         Imgproc.findContours(edges, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
         MatOfPoint2f matOfPoint2f = new MatOfPoint2f();
@@ -139,43 +139,49 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             for (int idx = 0; idx < contours.size(); idx++) {
 
                 MatOfPoint contour = contours.get(idx);
+
                 double contourArea = Imgproc.contourArea(contour);
-                matOfPoint2f.fromList(contour.toList());
-                //Calcolo del numero di angoli e del loro valore
-                //ApproxPolyDP approssima il poligono con meno vertice da un contorno
-                Imgproc.approxPolyDP(matOfPoint2f, approxCurve, Imgproc.arcLength(matOfPoint2f, true) * 0.02, true);
-                long total = approxCurve.total();
-                if (total >= 4 && total <= 6) {
-                    List<Double> cos = new ArrayList<>();
-                    Point[] points = approxCurve.toArray();
-                    for (int j = 2; j < total + 1; j++) {
-                        cos.add(angle(points[(int) (j % total)], points[j - 2], points[j - 1]));
-                    }
-                    Collections.sort(cos);
-                    Double minCos = cos.get(0);
-                    Double maxCos = cos.get(cos.size() - 1);
-                    //considereare solo le forme con quattro angoli e con certi valori di coseno tra -0.1 e 0.3
-                    boolean isRect = total == 4 && minCos >= -0.1 && maxCos <= 0.3;
-                    Rect rect = Imgproc.boundingRect(maxcnt);
-                    //recuperazione del centro del rettangolo (dunque del contorno)
-                    double centx = ((rect.tl().x + rect.br().x) / 2);
-                    double centy = (rect.tl().y + rect.br().y) / 2;
+                if(contourArea>500) {
+                    matOfPoint2f.fromList(contour.toList());
+                    //Calcolo del numero di angoli e del loro valore
+                    //ApproxPolyDP approssima il poligono con meno vertice da un contorno
+                    Imgproc.approxPolyDP(matOfPoint2f, approxCurve, Imgproc.arcLength(matOfPoint2f, true) * 0.02, true);
+                    long total = approxCurve.total();
+                    if (total >= 4 && total <= 6) {
+                        List<Double> cos = new ArrayList<>();
+                        Point[] points = approxCurve.toArray();
+                        for (int j = 2; j < total + 1; j++) {
+                            cos.add(angle(points[(int) (j % total)], points[j - 2], points[j - 1]));
+                        }
+                        Collections.sort(cos);
+                        Double minCos = cos.get(0);
+                        Double maxCos = cos.get(cos.size() - 1);
+                        Rect rect = Imgproc.boundingRect(maxcnt);
+                        //recuperazione del centro del rettangolo (dunque del contorno)
+                        double centx = ((rect.tl().x + rect.br().x) / 2);
+                        double centy = (rect.tl().y + rect.br().y) / 2;
 
-                    //recupero delle informazioni HSV del pixel centrale
-                    double[] pixel = mHSV.get((int) centy, (int) centx);
+                        //recupero delle informazioni HSV del pixel centrale
+                        double[] pixel = mHSV.get((int) centy, (int) centx);
+                        //considereare solo le forme con quattro angoli e con certi valori di coseno tra -0.1 e 0.3
+                        boolean isRect = total == 4 && minCos >= -0.1 && maxCos <= 0.3;
+                        if (isRect && contourArea>biggestContour) {
+                            if ((pixel[0] < 50 && pixel[1] > 120 && pixel[2] > 20 && pixel[2] < 210) || (pixel[0] > 37 && pixel[0] < 100 && pixel[1] > 110 && pixel[2] > 120)) {
+                                biggestContour = contourArea;
+                                maxcntID = idx;
 
+                            }
+                            /*if(idx==(contours.size()-2)){
+                                Imgproc.drawContours(mRgba, contours, maxcntID, new Scalar(255, 0, 0), 5);
+                            }*/
 
-                    if (isRect && contourArea > biggestContour) {
-                        if ((pixel[0] < 50 && pixel[1] > 120 && pixel[2] > 20 && pixel[2] < 210)||(pixel[0] > 37 && pixel[0] < 100 && pixel[1] > 110 && pixel[2] > 120)) {
-                            biggestContour = contourArea;
-                            maxcntID = idx;
                         }
 
                     }
-
                 }
             }
             maxcnt = contours.get(maxcntID);
+            Imgproc.drawContours(mRgba, contours, maxcntID, new Scalar(255, 0, 0), 5);
             //trovare il rettangolo piu piccolo che circonda il contorno
             Rect rect = Imgproc.boundingRect(maxcnt);
             //recuperazione del centro del rettangolo (dunque del contorno)
