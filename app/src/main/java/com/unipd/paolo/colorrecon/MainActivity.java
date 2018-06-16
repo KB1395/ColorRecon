@@ -193,19 +193,14 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
 
                                 //Imgproc.putText (mRgba,"RED",new Point(10, 50),Core.FONT_HERSHEY_SIMPLEX ,1,new Scalar(255, 255, 255),4);
-                                Imgproc.drawContours(mRgba, contours, maxcntID, color, 5);
+                                //Imgproc.drawContours(mRgba, contours, maxcntID, color, 5);
                                 foundColor = 1;
-
-
-
                             }
-
-
                             else if(pixel[0]>37 && pixel[0]<100 && pixel[1] > 110 && pixel[2]>120){
 
 
                                 //Imgproc.putText (mRgba,"GREEN",new Point(10, 50),Core.FONT_HERSHEY_SIMPLEX ,1,new Scalar(255, 255, 255),4);
-                                Imgproc.drawContours(mRgba, contours, maxcntID, color, 5);
+                                //Imgproc.drawContours(mRgba, contours, maxcntID, color, 5);
                                 foundColor = 2;
 
                             }
