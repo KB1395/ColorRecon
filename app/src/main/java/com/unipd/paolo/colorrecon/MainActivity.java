@@ -32,7 +32,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private int maxcntID;
     private MatOfPoint maxcnt;
     public int finalColor;
-
+    private int redFrame;
+    private int greenFrame;
+    private int foundColor;
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
         public void onManagerConnected(int status) {
@@ -98,6 +100,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         hierarchy = new Mat();
         maxcnt=new MatOfPoint();
         finalColor=0;
+        greenFrame=0;
+        redFrame=0;
+
 
     }
 
@@ -110,7 +115,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
 
 
-
+        foundColor=0;
         //Trasformazione della camera frame in ogetto Mat
         mRgba = inputFrame.rgba();
         Mat mHSV = new Mat();
@@ -186,17 +191,23 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                             //2: Verde
                             if(pixel[0]<50 && pixel[1] >120 && pixel[2]>20 && pixel[2]<210){
 
+
                                 //Imgproc.putText (mRgba,"RED",new Point(10, 50),Core.FONT_HERSHEY_SIMPLEX ,1,new Scalar(255, 255, 255),4);
                                 Imgproc.drawContours(mRgba, contours, maxcntID, color, 5);
-                                finalColor=1;
+                                foundColor = 1;
+
+
 
                             }
 
 
                             else if(pixel[0]>37 && pixel[0]<100 && pixel[1] > 110 && pixel[2]>120){
+
+
                                 //Imgproc.putText (mRgba,"GREEN",new Point(10, 50),Core.FONT_HERSHEY_SIMPLEX ,1,new Scalar(255, 255, 255),4);
                                 Imgproc.drawContours(mRgba, contours, maxcntID, color, 5);
-                                finalColor=2;
+                                foundColor = 2;
+
                             }
 
                         }
@@ -204,6 +215,24 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
                     }
 
+                }
+            }
+            if(foundColor==1){
+                if(redFrame<48){
+                    redFrame++;
+                }
+                else{
+                    Imgproc.putText (mRgba,"RED",new Point(10, 50),Core.FONT_HERSHEY_SIMPLEX ,1,new Scalar(255, 0,0),4);
+                    foundColor=1;
+                }
+            }
+            else if(foundColor==2){
+                if(greenFrame<48){
+                    greenFrame++;
+                }
+                else{
+                    Imgproc.putText (mRgba,"GREEN",new Point(10, 50),Core.FONT_HERSHEY_SIMPLEX ,1,new Scalar(0, 255, 0),4);
+                    foundColor=2;
                 }
             }
 
