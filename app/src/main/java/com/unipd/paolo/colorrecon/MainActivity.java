@@ -32,6 +32,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private int maxcntID;
     private MatOfPoint maxcnt;
     public int finalColor;
+    private int redFrames;
+    private int greenFrames;
+    private double biggestContour;
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -98,7 +101,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         hierarchy = new Mat();
         maxcnt=new MatOfPoint();
         finalColor=0;
-
+        redFrames=0;
+        greenFrames=0;
+        biggestContour=0;
     }
 
     @Override
@@ -131,17 +136,13 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         //assicurarsi che almeno un contorno sia trovato
         if (!contours.isEmpty()) {
             //percorrere tutti i contorni
-            for (int idx = 0; idx<contours.size(); idx ++) {
+            for (int idx = 0; idx < contours.size(); idx++) {
 
                 MatOfPoint contour = contours.get(idx);
-                //trovare il rettangolo piu piccolo che circonda il contorno
-                Rect rect = Imgproc.boundingRect(contour);
                 double contourArea = Imgproc.contourArea(contour);
-
-
-
                 matOfPoint2f.fromList(contour.toList());
                 //Calcolo del numero di angoli e del loro valore
+                //ApproxPolyDP approssima il poligono con meno vertice da un contorno
                 Imgproc.approxPolyDP(matOfPoint2f, approxCurve, Imgproc.arcLength(matOfPoint2f, true) * 0.02, true);
                 long total = approxCurve.total();
                 if (total >= 4 && total <= 6) {
@@ -153,64 +154,69 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                     Collections.sort(cos);
                     Double minCos = cos.get(0);
                     Double maxCos = cos.get(cos.size() - 1);
-                    //considereare solo le forme con quattro angoli e con certi valori di coseni
+                    //considereare solo le forme con quattro angoli e con certi valori di coseno tra -0.1 e 0.3
                     boolean isRect = total == 4 && minCos >= -0.1 && maxCos <= 0.3;
-                    if (isRect) {
-                        //Si entra in questa zona solo se il contorno è un rettangolo
-                        MatOfPoint2f areaPoints = new MatOfPoint2f(contour.toArray());
-                        //Creazione di un bounding rectangle (Rettangolo che segue le rotazioni del contorno)
-                        RotatedRect boundingRect = Imgproc.minAreaRect(areaPoints);
 
-                        Point rotated_rect_points[] = new Point[4];
-                        boundingRect.points(rotated_rect_points);
-                        //recuperazione del centro del rettangolo (dunque del contorno)
-                        double centx = ((rect.tl().x+rect.br().x)/2);
-                        double centy = (rect.tl().y+rect.br().y)/2;
-
-                        //recupero delle informazioni HSV del pixel centrale
-                        double[] pixel = mHSV.get((int) centy,(int) centx);
-
-                        if(contourArea>100){
-                            //ci interessano solo i rettangoli di una certa grandezza (evitare parassiti)
-                            maxcnt=contour;
-                            maxcntID =idx;
-                            Scalar color = new Scalar(0, 0, 255);
-
-
-                            //in funzione dei valori H S e V del pixel centrale, possiamo definire
-                            //di che colore è il rettangolo
-
-                            //il parametro recuperato sarà "finalColor" dove
-                            //0: nessun colore dettettato (default)
-                            //1: Rosso
-                            //2: Verde
-                            if(pixel[0]<50 && pixel[1] >120 && pixel[2]>20 && pixel[2]<210){
-
-                                //Imgproc.putText (mRgba,"RED",new Point(10, 50),Core.FONT_HERSHEY_SIMPLEX ,1,new Scalar(255, 255, 255),4);
-                                Imgproc.drawContours(mRgba, contours, maxcntID, color, 5);
-                                finalColor=1;
-
-                            }
-
-
-                            else if(pixel[0]>37 && pixel[0]<100 && pixel[1] > 110 && pixel[2]>120){
-                                //Imgproc.putText (mRgba,"GREEN",new Point(10, 50),Core.FONT_HERSHEY_SIMPLEX ,1,new Scalar(255, 255, 255),4);
-                                Imgproc.drawContours(mRgba, contours, maxcntID, color, 5);
-                                finalColor=2;
-                            }
-
-                        }
-
-
+                    if (isRect && contourArea > biggestContour) {
+                        biggestContour = contourArea;
+                        maxcntID = idx;
                     }
 
                 }
             }
+            maxcnt = contours.get(maxcntID);
+            //trovare il rettangolo piu piccolo che circonda il contorno
+            Rect rect = Imgproc.boundingRect(maxcnt);
+            //Si entra in questa zona solo se il contorno è un rettangolo
+            MatOfPoint2f areaPoints = new MatOfPoint2f(maxcnt.toArray());
 
+            //recuperazione del centro del rettangolo (dunque del contorno)
+            double centx = ((rect.tl().x + rect.br().x) / 2);
+            double centy = (rect.tl().y + rect.br().y) / 2;
 
+            //recupero delle informazioni HSV del pixel centrale
+            double[] pixel = mHSV.get((int) centy, (int) centx);
+            Scalar color = new Scalar(0, 0, 255);
 
+            //in funzione dei valori H S e V del pixel centrale, possiamo definire
+            //di che colore è il rettangolo
 
+            //il parametro recuperato sarà "finalColor" dove
+            //0: nessun colore dettettato (default)
+            //1: Rosso
+            //2: Verde
+            if (pixel[0] < 50 && pixel[1] > 120 && pixel[2] > 20 && pixel[2] < 210) {
+                //Nel caso si vuole vedere il contorno e la detezione del colore, un-comment le due linee seguenti
+                //Imgproc.putText (mRgba,"RED",new Point(10, 50),Core.FONT_HERSHEY_SIMPLEX ,1,new Scalar(255, 255, 255),4);
+                //Imgproc.drawContours(mRgba, contours, maxcntID, color, 5);
+                if (redFrames < 48) {
+                    redFrames++;
+                    Imgproc.drawContours(mRgba, contours, maxcntID, color, 5);
+                }
+                if (redFrames >= 48) {
+                    Imgproc.putText(mRgba, "RED", new Point(10, 50), Core.FONT_HERSHEY_SIMPLEX, 1, new Scalar(255, 255, 255), 4);
+                    finalColor = 1;
+                }
+
+            } else if (pixel[0] > 37 && pixel[0] < 100 && pixel[1] > 110 && pixel[2] > 120) {
+                //Nel caso si vuole vedere il contorno e la detezione del colore, un-comment le due linee seguenti
+                //Imgproc.putText (mRgba,"GREEN",new Point(10, 50),Core.FONT_HERSHEY_SIMPLEX ,1,new Scalar(255, 255, 255),4);
+                //Imgproc.drawContours(mRgba, contours, maxcntID, color, 5);
+                if (greenFrames < 48) {
+                    greenFrames++;
+                    Imgproc.drawContours(mRgba, contours, maxcntID, color, 5);
+                }
+                else if (greenFrames >= 48) {
+                    Imgproc.putText(mRgba, "GREEN", new Point(10, 50), Core.FONT_HERSHEY_SIMPLEX, 1, new Scalar(255, 255, 255), 4);
+                    finalColor = 2;
+                }
+            }
         }
+
+
+
+
+
 
         return mRgba;
 
