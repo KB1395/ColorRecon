@@ -3,6 +3,7 @@ package com.unipd.paolo.colorrecon;
 import android.content.Context;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.WindowManager;
 import android.widget.ProgressBar;
 import android.widget.Toast;
@@ -28,16 +29,13 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private CameraBridgeViewBase openCvCameraBridge;
     private Mat mRgba;
 
-    private Mat edges;
+    private int missedFrames;
     private Mat hierarchy;
     private int maxcntID;
-    private MatOfPoint maxcnt;
     public String finalColor;
     private int redFrame;
     private int greenFrame;
     private int foundColor;
-    private double blueArea;
-    private double greenArea;
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
         public void onManagerConnected(int status) {
@@ -99,12 +97,11 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     @Override
     public void onCameraViewStarted(int width, int height) {
         mRgba = new Mat();
-        edges = new Mat();
         hierarchy = new Mat();
-        maxcnt=new MatOfPoint();
         finalColor="";
         greenFrame=0;
         redFrame=0;
+        missedFrames=0;
 
 
     }
@@ -118,8 +115,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
 
         //ProgressBar pb = findViewById(R.id.loadingBar);
-        blueArea=0;
-        greenArea=0;
+        missedFrames=0;
         foundColor=0;
         //Trasformazione della camera frame in ogetto Mat
         mRgba = inputFrame.rgba();
@@ -142,6 +138,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         Imgproc.findContours(BlueTresh, Bcontours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
         MatOfPoint2f matOfPoint2f = new MatOfPoint2f();
         MatOfPoint2f approxCurve = new MatOfPoint2f();
+
+
         //assicurarsi che almeno un contorno sia trovato
         if (!Bcontours.isEmpty()) {
             //percorrere tutti i contorni
@@ -173,9 +171,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                         if(contourArea>100){
                             Imgproc.drawContours(mRgba, Bcontours, idx, new Scalar(255, 0, 0), 5);
                             //ci interessano solo i rettangoli di una certa grandezza (evitare parassiti)
-                            maxcnt=contour;
                             maxcntID =idx;
-                            blueArea=contourArea;
                             Scalar color = new Scalar(0, 0, 255);
 
                             foundColor = 1;
@@ -187,11 +183,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
                 }
             }
-
-
-
-
-
         }
         if (!Gcontours.isEmpty()) {
             //percorrere tutti i contorni
@@ -220,10 +211,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                     boolean isRect = total == 4 && minCos >= -0.1 && maxCos <= 0.3;
                     if (isRect) {
                         if(contourArea>100){
-                            maxcnt=contour;
                             maxcntID =idx;
-                            greenArea=contourArea;
-
                             foundColor = 2;
                         }
 
@@ -232,11 +220,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
                 }
             }
-
-
-
-
-
         }
         if(!Gcontours.isEmpty() || !Bcontours.isEmpty()) {
             if(foundColor==1){
@@ -267,6 +250,18 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                     finalColor = "GREEN";
                 }
             }
+            else if(foundColor == 0)
+            {
+                missedFrames++;
+                if (missedFrames > 4)
+                {
+                    //Log.e(TAG, "missedFrames>4");
+                    greenFrame = 0; redFrame = 0; missedFrames = 0;
+                    //pb.setProgress(0);
+                }
+            }
+            foundColor = 0;
+            //Log.e(TAG, "foundColor " + foundColor + " missedFrames " + missedFrames);
         }
 
 
