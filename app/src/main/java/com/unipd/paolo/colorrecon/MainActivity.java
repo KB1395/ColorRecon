@@ -4,6 +4,7 @@ import android.content.Context;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.WindowManager;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import org.opencv.android.BaseLoaderCallback;
@@ -31,10 +32,12 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private Mat hierarchy;
     private int maxcntID;
     private MatOfPoint maxcnt;
-    public int finalColor;
+    public String finalColor;
     private int redFrame;
     private int greenFrame;
     private int foundColor;
+    private double blueArea;
+    private double greenArea;
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
         public void onManagerConnected(int status) {
@@ -99,7 +102,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         edges = new Mat();
         hierarchy = new Mat();
         maxcnt=new MatOfPoint();
-        finalColor=0;
+        finalColor="";
         greenFrame=0;
         redFrame=0;
 
@@ -114,31 +117,37 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
 
-
+        //ProgressBar pb = findViewById(R.id.loadingBar);
+        blueArea=0;
+        greenArea=0;
         foundColor=0;
         //Trasformazione della camera frame in ogetto Mat
         mRgba = inputFrame.rgba();
         Mat mHSV = new Mat();
+        Mat HSVcopy = new Mat();
+        //Mat Blurred = new Mat();
+        Mat BlueTresh= new Mat();
+        Mat GreenTresh = new Mat();
         //Conversione della frame in HSV
+        //Imgproc.GaussianBlur(mRgba,Blurred,new Size(45,45),0);
         Imgproc.cvtColor(mRgba, mHSV, Imgproc.COLOR_RGB2HSV_FULL);
-        Mat destination = new Mat(mRgba.rows(), mRgba.cols(), mRgba.type());
-        //ALtra conversione in grayscale (meglio per il riconoscimento di contorni)
-        Imgproc.cvtColor(mRgba, destination, Imgproc.COLOR_RGB2GRAY);
-        int threshold = 100;
-        //Effetuare un Canny sulla frame in grayscale
-        //(Canny è una trasformazione che permette di detettare i contorni)
-        Imgproc.Canny(destination, edges, threshold, threshold*3);
-        List<MatOfPoint> contours = new ArrayList<>();
+        mHSV.copyTo(HSVcopy);
+        Core.inRange(HSVcopy,new Scalar(0,154,164),new Scalar(31,255,255),BlueTresh);
+        Core.inRange(HSVcopy,new Scalar(37,110,120),new Scalar(100,255,255),GreenTresh);
+
+        List<MatOfPoint> Gcontours = new ArrayList<>();
+        List<MatOfPoint> Bcontours = new ArrayList<>();
         //Creazione di un array di contorni
-        Imgproc.findContours(edges, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+        Imgproc.findContours(GreenTresh, Gcontours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+        Imgproc.findContours(BlueTresh, Bcontours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
         MatOfPoint2f matOfPoint2f = new MatOfPoint2f();
         MatOfPoint2f approxCurve = new MatOfPoint2f();
         //assicurarsi che almeno un contorno sia trovato
-        if (!contours.isEmpty()) {
+        if (!Bcontours.isEmpty()) {
             //percorrere tutti i contorni
-            for (int idx = 0; idx<contours.size(); idx ++) {
+            for (int idx = 0; idx<Bcontours.size(); idx ++) {
 
-                MatOfPoint contour = contours.get(idx);
+                MatOfPoint contour = Bcontours.get(idx);
                 //trovare il rettangolo piu piccolo che circonda il contorno
                 Rect rect = Imgproc.boundingRect(contour);
                 double contourArea = Imgproc.contourArea(contour);
@@ -161,49 +170,15 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                     //considereare solo le forme con quattro angoli e con certi valori di coseni
                     boolean isRect = total == 4 && minCos >= -0.1 && maxCos <= 0.3;
                     if (isRect) {
-                        //Si entra in questa zona solo se il contorno è un rettangolo
-                        MatOfPoint2f areaPoints = new MatOfPoint2f(contour.toArray());
-                        //Creazione di un bounding rectangle (Rettangolo che segue le rotazioni del contorno)
-                        RotatedRect boundingRect = Imgproc.minAreaRect(areaPoints);
-
-                        Point rotated_rect_points[] = new Point[4];
-                        boundingRect.points(rotated_rect_points);
-                        //recuperazione del centro del rettangolo (dunque del contorno)
-                        double centx = ((rect.tl().x+rect.br().x)/2);
-                        double centy = (rect.tl().y+rect.br().y)/2;
-
-                        //recupero delle informazioni HSV del pixel centrale
-                        double[] pixel = mHSV.get((int) centy,(int) centx);
-
                         if(contourArea>100){
+                            Imgproc.drawContours(mRgba, Bcontours, idx, new Scalar(255, 0, 0), 5);
                             //ci interessano solo i rettangoli di una certa grandezza (evitare parassiti)
                             maxcnt=contour;
                             maxcntID =idx;
+                            blueArea=contourArea;
                             Scalar color = new Scalar(0, 0, 255);
 
-
-                            //in funzione dei valori H S e V del pixel centrale, possiamo definire
-                            //di che colore è il rettangolo
-
-                            //il parametro recuperato sarà "finalColor" dove
-                            //0: nessun colore dettettato (default)
-                            //1: Rosso
-                            //2: Verde
-                            if(pixel[0]<50 && pixel[1] >120 && pixel[2]>20 && pixel[2]<210){
-
-
-                                //Imgproc.putText (mRgba,"RED",new Point(10, 50),Core.FONT_HERSHEY_SIMPLEX ,1,new Scalar(255, 255, 255),4);
-                                //Imgproc.drawContours(mRgba, contours, maxcntID, color, 5);
-                                foundColor = 1;
-                            }
-                            else if(pixel[0]>37 && pixel[0]<100 && pixel[1] > 110 && pixel[2]>120){
-
-
-                                //Imgproc.putText (mRgba,"GREEN",new Point(10, 50),Core.FONT_HERSHEY_SIMPLEX ,1,new Scalar(255, 255, 255),4);
-                                //Imgproc.drawContours(mRgba, contours, maxcntID, color, 5);
-                                foundColor = 2;
-
-                            }
+                            foundColor = 1;
 
                         }
 
@@ -212,29 +187,88 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
                 }
             }
-            if(foundColor==1){
-                if(redFrame<48){
-                    redFrame++;
-                }
-                else{
-                    Imgproc.putText (mRgba,"RED",new Point(10, 50),Core.FONT_HERSHEY_SIMPLEX ,1,new Scalar(255, 0,0),4);
-                    foundColor=1;
-                }
-            }
-            else if(foundColor==2){
-                if(greenFrame<48){
-                    greenFrame++;
-                }
-                else{
-                    Imgproc.putText (mRgba,"GREEN",new Point(10, 50),Core.FONT_HERSHEY_SIMPLEX ,1,new Scalar(0, 255, 0),4);
-                    foundColor=2;
-                }
-            }
+
 
 
 
 
         }
+        if (!Gcontours.isEmpty()) {
+            //percorrere tutti i contorni
+            for (int idx = 0; idx<Gcontours.size(); idx ++) {
+
+                MatOfPoint contour = Gcontours.get(idx);
+
+                double contourArea = Imgproc.contourArea(contour);
+
+
+
+                matOfPoint2f.fromList(contour.toList());
+                //Calcolo del numero di angoli e del loro valore
+                Imgproc.approxPolyDP(matOfPoint2f, approxCurve, Imgproc.arcLength(matOfPoint2f, true) * 0.02, true);
+                long total = approxCurve.total();
+                if (total >= 4 && total <= 6) {
+                    List<Double> cos = new ArrayList<>();
+                    Point[] points = approxCurve.toArray();
+                    for (int j = 2; j < total + 1; j++) {
+                        cos.add(angle(points[(int) (j % total)], points[j - 2], points[j - 1]));
+                    }
+                    Collections.sort(cos);
+                    Double minCos = cos.get(0);
+                    Double maxCos = cos.get(cos.size() - 1);
+                    //considereare solo le forme con quattro angoli e con certi valori di coseni
+                    boolean isRect = total == 4 && minCos >= -0.1 && maxCos <= 0.3;
+                    if (isRect) {
+                        if(contourArea>100){
+                            maxcnt=contour;
+                            maxcntID =idx;
+                            greenArea=contourArea;
+
+                            foundColor = 2;
+                        }
+
+
+                    }
+
+                }
+            }
+
+
+
+
+
+        }
+        if(!Gcontours.isEmpty() || !Bcontours.isEmpty()) {
+            if(foundColor==1){
+                Imgproc.drawContours(mRgba, Bcontours, maxcntID, new Scalar(255, 0, 0), 5);
+                if(redFrame<48){
+                    redFrame++;
+                    //sets progress bar percentage
+                    //pb.setProgress(redFrame*3);
+                }
+                else{
+                    Imgproc.putText (mRgba,"RED",new Point(10, 50),Core.FONT_HERSHEY_SIMPLEX ,1,new Scalar(255, 0,0),4);
+                    foundColor=1;
+                    finalColor = "RED";
+                }
+            }
+            else if(foundColor==2){
+                Imgproc.drawContours(mRgba, Gcontours, maxcntID, new Scalar(255, 0, 0), 5);
+                if(greenFrame<48){
+                    greenFrame++;
+                    Imgproc.drawContours(mRgba, Gcontours, maxcntID, new Scalar(255, 0, 0), 5);
+                    //sets progress bar percentage
+                    //pb.setProgress(greenFrame*3);
+                }
+                else{
+                    Imgproc.drawContours(mRgba, Gcontours, maxcntID, new Scalar(255, 0, 0), 5);
+                    Imgproc.putText (mRgba,"GREEN",new Point(10, 50),Core.FONT_HERSHEY_SIMPLEX ,1,new Scalar(0, 255, 0),4);
+                    foundColor=2;
+                    finalColor = "GREEN";
+                }
+            }
+        }
+
 
         return mRgba;
 
